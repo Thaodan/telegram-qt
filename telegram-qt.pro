@@ -79,6 +79,8 @@ contains(options, developer-build) {
     }
 }
 
+SUBDIRS += server
+
 OTHER_FILES += CMakeLists.txt
 OTHER_FILES += README.md
 OTHER_FILES += .travis.yml

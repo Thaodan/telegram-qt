@@ -28,6 +28,7 @@
 #include <QBuffer>
 #include <QCryptographicHash>
 #include <QDebug>
+#include <QFileInfo>
 
 #include "CRawStream.hpp"
 
@@ -282,6 +283,57 @@ Telegram::RsaKey Utils::loadRsaKeyFromFile(const QString &fileName)
     }
     result.modulus = SslBigNumber::toByteArray(key->n);
     result.exponent = SslBigNumber::toByteArray(key->e);
+    result.fingerprint = getRsaFingersprint(result);
+    RSA_free(key);
+    return result;
+}
+
+RsaPrivateKey Utils::loadRsaPrivateKeyFromFile2(const QString &fileName)
+{
+    RsaPrivateKey result;
+    FILE *file = fopen(fileName.toLocal8Bit().constData(), "r");
+    if (!file) {
+        qWarning() << "Can not open RSA key file.";
+        return result;
+    }
+    RSA *key = PEM_read_RSAPrivateKey(file, NULL, NULL, NULL);
+
+    fclose(file);
+    if (!key) {
+        qWarning() << "Can not read RSA key.";
+        return result;
+    }
+    result.modulus = SslBigNumber::toByteArray(key->n);
+    result.exponent = SslBigNumber::toByteArray(key->e);
+    result.d = SslBigNumber::toByteArray(key->d);
+    result.p = SslBigNumber::toByteArray(key->p);
+    result.q = SslBigNumber::toByteArray(key->q);
+    RSA_free(key);
+    return result;
+}
+
+Telegram::RsaKey Utils::loadRsaPrivateKeyFromFile(const QString &fileName)
+{
+    Telegram::RsaKey result;
+    if (!QFileInfo::exists(fileName)) {
+        qWarning() << "The RSA key file" << fileName << "does not exist";
+        return result;
+    }
+    FILE *file = fopen(fileName.toLocal8Bit().constData(), "r");
+    if (!file) {
+        qWarning() << "Can not open RSA key file.";
+        return result;
+    }
+    RSA *key = PEM_read_RSAPrivateKey(file, NULL, NULL, NULL);
+
+    fclose(file);
+    if (!key) {
+        qWarning() << "Can not read RSA key.";
+        return result;
+    }
+    result.modulus = SslBigNumber::toByteArray(key->n);
+    result.exponent = SslBigNumber::toByteArray(key->e);
+    result.secretExponent = SslBigNumber::toByteArray(key->d);
     result.fingerprint = getRsaFingersprint(result);
     RSA_free(key);
     return result;

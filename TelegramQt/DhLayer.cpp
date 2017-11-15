@@ -80,12 +80,8 @@ bool BaseDhLayer::checkClientServerNonse(CTelegramStream &stream) const
     return true;
 }
 
-PlainPacketOperation *BaseDhLayer::sendPlainPackage(const QByteArray &payload)
+bool BaseDhLayer::sendPlainPackage(const QByteArray &payload)
 {
-    if (m_plainOperation) {
-        return nullptr;
-    }
-
     const quint64 authKeyId = 0;
     const quint64 messageId = newMessageId();
     const quint32 messageLength = payload.length();
@@ -100,36 +96,7 @@ PlainPacketOperation *BaseDhLayer::sendPlainPackage(const QByteArray &payload)
     outputStream << messageLength;
     outputStream << payload;
     m_transport->sendPackage(output);
-
-#ifdef NETWORK_LOGGING
-    CTelegramStream readBack(buffer);
-    TLValue val1;
-    readBack >> val1;
-
-    QTextStream str(m_logFile);
-
-    str << QDateTime::currentDateTime().toString(QLatin1String("yyyyMMdd HH:mm:ss:zzz")) << QLatin1Char('|');
-    str << QLatin1String("pln|");
-    str << QString(QLatin1String("size: %1|")).arg(buffer.length(), 4, 10, QLatin1Char('0'));
-    str << formatTLValue(val1) << QLatin1Char('|');
-    str << buffer.toHex();
-    str << endl;
-    str.flush();
-#endif
-
-    m_plainOperation = new PlainPacketOperation(payload, this);
-    m_plainOperation->setRequestId(messageId);
-    return m_plainOperation;
-}
-
-PlainPacketOperation *BaseDhLayer::readPlainPackage()
-{
-    if (m_plainOperation) {
-        qWarning() << Q_FUNC_INFO << "Already has an operation in progress";
-        return nullptr;
-    }
-    m_plainOperation = new PlainPacketOperation(QByteArray(), this);
-    return m_plainOperation;
+    return true;
 }
 
 bool BaseDhLayer::processPlainPackage(const QByteArray &buffer)
@@ -159,22 +126,19 @@ bool BaseDhLayer::processPlainPackage(const QByteArray &buffer)
     payload = inputStream.readBytes(messageLength);
     qDebug() << "read payload:" << messageLength;
 #ifdef DEVELOPER_BUILD
-    qDebug() << Q_FUNC_INFO << "new plain package in auth state" << m_authState << "payload:" << TLValue::firstFromArray(payload);
+    qDebug() << Q_FUNC_INFO << "new plain package in auth state" << m_state << "payload:" << TLValue::firstFromArray(payload);
 #endif
-    if (!m_plainOperation) {
-        qCritical() << Q_FUNC_INFO << "Unexpected unencrypted message";
-        return false;
-    }
-    PlainPacketOperation *op = m_plainOperation;
-    m_plainOperation = nullptr;
-    op->setReplyData(payload);
-    op->setFinished();
+    processReceivedPacket(payload);
     return true;
 }
 
-void BaseDhLayer::setAuthState(BaseDhLayer::AuthState state)
+void BaseDhLayer::setState(BaseDhLayer::State state)
 {
-    m_authState = state;
+    if (m_state == state) {
+        return;
+    }
+    m_state = state;
+    emit stateChanged(state);
 }
 
 void BaseDhLayer::setDeltaTime(const qint32 newDt)

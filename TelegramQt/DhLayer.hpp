@@ -19,9 +19,10 @@
 #define DH_LAYER_HPP
 
 #include "TLNumbers.hpp"
+#include "TelegramNamespace.hpp"
 #include "crypto-aes.hpp"
 #include "CTelegramStream.hpp"
-#include "PendingOperation.hpp"
+#include <QtEndian>
 
 class CTelegramTransport;
 
@@ -31,45 +32,25 @@ class BaseDhLayer : public QObject
 {
     Q_OBJECT
 public:
-    enum class AuthState {
+    // Diffie-Hellman key exchange; https://core.telegram.org/mtproto/auth_key
+    enum class State {
+        // Both, Client, Server
         Idle,
-        PqRequested,
-        DhRequested,
-        DhGenerationResultRequested,
+                 PqRequested,                 // #1 Client sends ReqPq
+                         PqReplied,           // #2 Server sends ResPq
+                 PqAccepted,                  // #3 Client processes ResPQ
+                 DhRequested,                 // #4 Client sends ReqDHParams with PQInnerData
+                         DhRepliedOK,         // #5a Server sends ServerDHParamsOk with ServerDHInnerData
+                         DhRepliedFail,       // #5b Server sends ServerDHParamsFail
+                 DhGenerationResultRequested, // #6 Client sends SetClientDHParams with ClientDHInnerData)
+                                              // #7, #8 Possible auth key and the key id is known to server and client
+                         DhGenOk,             // #9a Server sends DhGenOk
+                         DhGenRetry,          // #9b Server sends DhGenRetry
+                         DhGenFail,           // #9c Server sends DhGenFail
+        Failed,
         HasKey,
     };
-    Q_ENUM(AuthState)
-
-    /*
-     * Client:
-     *   Idle -> RequestPq -> AcceptPqAuthorization
-     * Server:
-     *   Idle -> ReqPqProcessed ->
-     *
-     *
-     */
-
-    // Diffie-Hellman key exchange; https://core.telegram.org/mtproto/auth_key
-
-//    void requestPqAuthorization(); // #1 Client
-//    void processReqPq(CTelegramStream &stream); // #2 Server
-
-//    bool acceptPqAuthorization(const QByteArray &payload); // #3 Client
-//    void requestDhParameters(); // #4 Client
-
-//    bool processReqDHParams(CTelegramStream &inputStream); // #5.1 Server
-//    bool acceptDhParams(); // #5.2a Server (DH OK)
-//    bool declineDhParams(); // #5.2b Server (DH Fail)
-
-//    bool acceptDhAnswer(const QByteArray &payload); // #5.3 Client processes 5.1
-//    bool processServerDHParamsOK(const QByteArray &encryptedAnswer); // #5.4a Client processes 5.2a
-//    bool processServerDHParamsFail(const QByteArray &encryptedAnswer); // #5.4b Client processes 5.2b
-
-//    void generateDh(); // #6.1 Client
-//    void requestDhGenerationResult(); // #6.2 Client
-
-//    bool processSetClientDHParams(CTelegramStream &stream); // #7, #8, #9 Server
-//    bool processServerDhAnswer(const QByteArray &payload); // #7, #8, #9 Client
+    Q_ENUM(State)
 
     explicit BaseDhLayer(QObject *parent = nullptr);
     virtual void init() = 0;
@@ -82,12 +63,9 @@ public:
 
     // Helpers
     bool checkClientServerNonse(CTelegramStream &stream) const;
-    PlainPacketOperation *sendPlainPackage(const QByteArray &payload);
-    PlainPacketOperation *readPlainPackage();
+    bool sendPlainPackage(const QByteArray &payload);
     bool processPlainPackage(const QByteArray &buffer);
     virtual quint64 newMessageId() = 0;
-
-    bool hasPendingOperation() { return m_plainOperation; }
 
     // Extra
     TLNumber128 clientNonce() const { return m_clientNonce; }
@@ -97,13 +75,24 @@ public:
     void setServerSalt(const quint64 salt) { m_serverSalt = salt; }
 
     QByteArray authKey() const { return m_authKey; }
-    AuthState authState() { return m_authState; }
+    State state() { return m_state; }
+
+    qint32 deltaTime() const { return m_deltaTime; }
+
+    template <typename T>
+    static QByteArray intToBytes(const T value) {
+        QByteArray bytes(sizeof(value), Qt::Uninitialized);
+        qToBigEndian<T>(value, (uchar *) bytes.data());
+        return bytes;
+    }
 
 signals:
-    void finished();
+    void stateChanged(State newState);
 
 protected:
-    void setAuthState(AuthState state);
+    virtual void processReceivedPacket(const QByteArray &payload) = 0;
+
+    void setState(State state);
     void setDeltaTime(const qint32 newDt);
     void setAuthKey(const QByteArray &authKey);
 
@@ -127,15 +116,12 @@ protected:
     QByteArray m_b; // Client side
 
     QByteArray m_authKey;
-    AuthState m_authState;
+    State m_state = State::Idle;
 
     quint64 m_authRetryId;
     quint64 m_serverSalt;
 
     qint32 m_deltaTime = 0;
-
-private:
-    PlainPacketOperation *m_plainOperation = nullptr;
 
 };
 

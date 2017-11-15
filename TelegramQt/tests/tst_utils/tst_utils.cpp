@@ -22,6 +22,7 @@
 
 #include <QTest>
 #include <QDebug>
+#include <QStandardPaths>
 
 using namespace Telegram;
 
@@ -33,6 +34,7 @@ public:
 
 private slots:
     void testAesEncryption();
+    void testRsaEncryption();
     void testRsaFingersprint();
     void testRsaKey();
     void testRsaKeyIsValid();
@@ -54,6 +56,22 @@ void tst_utils::testAesEncryption()
     QVERIFY(!encodedData.isEmpty());
     const QByteArray decodedData = Utils::aesDecrypt(encodedData, aesKey);
     QCOMPARE(sourceData, decodedData);
+}
+
+void tst_utils::testRsaEncryption()
+{
+    Telegram::RsaKey key = Utils::loadRsaPrivateKeyFromFile(QStandardPaths::standardLocations(QStandardPaths::HomeLocation).first() + QStringLiteral("/TelegramServer/private_key_2048.pem"));
+    QVERIFY(key.isValid());
+
+    const QByteArray sourceData = QByteArrayLiteral("TestData12345678");
+    const QByteArray encodedData = Utils::rsa(sourceData, key);
+    QVERIFY(!encodedData.isEmpty());
+    const QByteArray decodedData = Utils::binaryNumberModExp(encodedData, key.modulus, key.secretExponent);
+    QCOMPARE(sourceData, decodedData);
+
+    const QByteArray encData = QByteArray::fromHex(QByteArrayLiteral("b5f54f843a80a21dccaa88f80d3d1a23c788b3090089265005c6e94c1f2b38b749f20799a63d0fd516f0912597735096c2d644579ba53a217a5070615ffabf450baaa6504ff4196a6f520e190d77cdbb7f78684c4b260e31f5108e7b6a20316e569ea2725ed6eeed49cbd357a982f75d38bbd623f9a02eb7f9af83fcd9f14e2a147a87dae0932949e44a06751926cd97563162833a4809c1116fc6d262c2c3d428a529ef38ccb045e4e7769efcfcf0a4ae3088b008fbc9e4417a52e70dbb2eaaa7c018f3eeda0977cb945c364b0a539f48c9617499dc59c8be8fb6d69a2146f502fb9a0642d93526eef3acf8e6c4f7ce30f46e1a13d4b48016157d3562262043"));
+    const QByteArray decData = Utils::binaryNumberModExp(encData, key.modulus, key.secretExponent);
+    qDebug() << "dec data:" << decData.toHex();
 }
 
 void tst_utils::testRsaFingersprint()

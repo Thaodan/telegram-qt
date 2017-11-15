@@ -23,6 +23,8 @@
 #include <QTest>
 #include <QDebug>
 
+#include <QtEndian>
+
 struct STestData {
     QVariant value;
     QByteArray serializedData;
@@ -47,6 +49,8 @@ private slots:
     void tlNumbersSerialization();
     void tlDcOptionDeserialization();
     void readError();
+    void byteArrays();
+    void reqPqData();
 
 };
 
@@ -293,24 +297,15 @@ void tst_CTelegramStream::vectorOfIntsSerialization()
     }
 
     {
-        QBuffer device;
-        device.open(QBuffer::WriteOnly);
-
-        CTelegramStream stream(&device);
-
+        QByteArray output;
+        CTelegramStream stream(&output, /* write */ true);
         stream << vector;
-        QCOMPARE(device.data(), encoded);
+        QCOMPARE(output, encoded);
     }
 
     {
-        QBuffer device;
-        device.setData(encoded);
-        device.open(QBuffer::ReadOnly);
-
-        CTelegramStream stream(&device);
-
+        CTelegramStream stream(encoded);
         TLVector<quint64> value;
-
         stream >> value;
 
         QCOMPARE(value, vector);
@@ -520,6 +515,100 @@ void tst_CTelegramStream::readError()
         QVERIFY2(stream.error(), "Partial read, error should be set.");
     }
 
+}
+
+void tst_CTelegramStream::byteArrays()
+{
+    QByteArray output;
+    CTelegramStream stream(&output, /* write */ true);
+    QByteArray array1 = QByteArrayLiteral("array1");
+    QByteArray array2 = QByteArrayLiteral("array2");
+
+    stream << array1;
+    stream << array2;
+
+    CTelegramStream inputStream(output);
+    QByteArray a1;
+    QByteArray a2;
+    inputStream >> a1;
+    inputStream >> a2;
+    QCOMPARE(array1, a1);
+    QCOMPARE(array2, a2);
+}
+
+void tst_CTelegramStream::reqPqData()
+{
+    TLNumber128 clientNonce;
+    clientNonce.parts[0] = 0x123456789abcdef0ull;
+    clientNonce.parts[1] = 0xabcdefabc0011234ull;
+
+    TLNumber128 serverNonce;
+    serverNonce.parts[0] = 0x56781234abcdef00ull;
+    serverNonce.parts[1] = 0xbcdefabcd0011224ull;
+
+    quint64 fingerprint = 12345678ull;
+
+    quint64 pq = 3;
+    QByteArray pqAsByteArray(sizeof(pq), Qt::Uninitialized);
+    qToBigEndian<quint64>(pq, (uchar *) pqAsByteArray.data());
+
+    const TLVector<quint64> fingersprints = { fingerprint };
+
+    QVector<int> bytes;
+    QByteArray output;
+    {
+        CTelegramStream outputStream(&output, /* write */ true);
+        outputStream << TLValue::ResPQ;
+        bytes << output.size();
+        outputStream << clientNonce;
+        bytes << output.size();
+        outputStream << serverNonce;
+        bytes << output.size();
+        outputStream << pqAsByteArray;
+        bytes << output.size();
+        outputStream << fingersprints;
+        bytes << output.size();
+    }
+
+    CTelegramStream inputStream(output);
+    {
+        TLValue responsePqValue;
+        inputStream >> responsePqValue;
+        QCOMPARE(inputStream.bytesAvailable(), output.size() - bytes.at(0));
+        QVERIFY2(responsePqValue == TLValue::ResPQ, "Error: Unexpected operation code");
+    }
+
+    {
+        TLNumber128 nonce;
+        inputStream >> nonce;
+        QCOMPARE(inputStream.bytesAvailable(), output.size() - bytes.at(1));
+        QVERIFY2(nonce == clientNonce, "Error: Read client nonce is different from the written own.");
+    }
+
+    {
+        TLNumber128 nonce;
+        inputStream >> nonce;
+        QCOMPARE(inputStream.bytesAvailable(), output.size() - bytes.at(2));
+        QVERIFY2(nonce == serverNonce, "Error: Read server nonce is different from the written own.");
+    }
+
+    {
+        QByteArray pqData;
+        inputStream >> pqData;
+        QCOMPARE(inputStream.bytesAvailable(), output.size() - bytes.at(3));
+        QCOMPARE(pqAsByteArray, pqData);
+
+        quint64 convertedPq = qFromBigEndian<quint64>(reinterpret_cast<const uchar*>(pqData.constData()));
+        QCOMPARE(convertedPq, pq);
+    }
+
+    {
+        TLVector<quint64> fingersprints;
+        inputStream >> fingersprints;
+        QCOMPARE(inputStream.bytesAvailable(), output.size() - bytes.at(4));
+        QCOMPARE(fingersprints.count(), 1);
+        QCOMPARE(fingersprints.first(), fingerprint);
+    }
 }
 
 QTEST_APPLESS_MAIN(tst_CTelegramStream)

@@ -39,6 +39,7 @@ private slots:
     void testTimestampConversion();
     void testAuth();
     void testAesKeyGeneration();
+    void testReqPqReadWrite();
 
 };
 
@@ -354,6 +355,11 @@ void tst_CTelegramConnection::testAesKeyGeneration()
 
     QCOMPARE(result.key, aesKeyArray);
     QCOMPARE(result.iv , aesIvArray);
+}
+
+void tst_CTelegramConnection::testReqPqReadWrite()
+{
+//    QByteArray data = "";
 }
 
 QTEST_MAIN(tst_CTelegramConnection)

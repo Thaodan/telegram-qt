@@ -145,6 +145,7 @@ namespace Telegram {
 struct RsaKey {
     QByteArray modulus;
     QByteArray exponent;
+    QByteArray secretExponent;
     quint64 fingerprint;
 
     RsaKey() :
@@ -161,6 +162,7 @@ struct RsaKey {
     {
         modulus = otherKey.modulus;
         exponent = otherKey.exponent;
+        secretExponent = otherKey.secretExponent;
         fingerprint = otherKey.fingerprint;
         return *this;
     }
