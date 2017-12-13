@@ -94,6 +94,12 @@ contains(options, developer-build) {
     DEFINES += QT_DEPRECATED_WARNINGS
 }
 
+contains(options, beta-build) {
+    SOURCES += Client.cpp PendingOperation.cpp
+    HEADERS += Client.hpp PendingOperation.hpp
+    HEADERS += Client_p.hpp
+}
+
 OTHER_FILES += CMakeLists.txt
 
 # Installation

@@ -43,6 +43,9 @@ isEmpty(BUILD_WIDGETS_CLIENT) {
         BUILD_WIDGETS_CLIENT = "true"
     }
 }
+isEmpty(BUILD_QML_CLIENT) {
+    BUILD_QML_CLIENT = "false"
+}
 
 isEmpty(BUILD_QML_IMPORT) {
     BUILD_QML_IMPORT = "true"
@@ -58,6 +61,11 @@ equals(BUILD_QCH, "true") {
 
 equals(BUILD_WIDGETS_CLIENT, "true") {
     SUBDIRS += clients/widgets
+    CONFIG += ordered
+}
+
+equals(BUILD_QML_IMPORT, "true") {
+    SUBDIRS += clients/qml-client
     CONFIG += ordered
 }
 

@@ -8,6 +8,8 @@
 #include "../../TelegramQt/CTelegramCore.hpp"
 #include "../../TelegramQt/CAppInformation.hpp"
 
+#include "DeclarativeOperations.hpp"
+
 class AccountSecretHelper : public QObject
 {
     Q_OBJECT
@@ -200,6 +202,8 @@ public:
         qmlRegisterType<CTelegramCore>(uri, 1, 0, "TelegramCore");
         qmlRegisterType<CAppInformation>(uri, 1, 0, "AppInformation");
         qmlRegisterType<AccountSecretHelper>(uri, 1, 0, "AccountSecretHelper");
+        qmlRegisterType<Telegram::Client::DeclarativeAuthOperation>(uri, 1, 0, "AuthOperation");
+        qmlRegisterType<Telegram::Client::DeclarativeClient>(uri, 1, 0, "Client");
     }
 };
 

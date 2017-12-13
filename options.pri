@@ -1,5 +1,6 @@
 options = developer-build
 #options += static-lib
+options += beta-build
 
 # Installation directories
 isEmpty(INSTALL_PREFIX) {
