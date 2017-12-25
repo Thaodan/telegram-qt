@@ -2002,12 +2002,16 @@ bool CTelegramConnection::acceptDhAnswer(const QByteArray &payload)
 
 bool CTelegramConnection::processServerDHParamsOK(const QByteArray &encryptedAnswer)
 {
+    qDebug() << Q_FUNC_INFO << "encryptedAnswer.size():" << encryptedAnswer.size();
     m_tmpAesKey = generateTmpAesKey();
 
     const QByteArray answerWithHash = Utils::aesDecrypt(encryptedAnswer, m_tmpAesKey);
     const QByteArray sha1OfAnswer = answerWithHash.mid(0, 20);
     const QByteArray answer = answerWithHash.mid(20, 564);
 
+    qDebug() << "answer size:" << answer.size();
+
+    qDebug() << "Taking sha of" << answer.toHex();
     if (Utils::sha1(answer) != sha1OfAnswer) {
         qDebug() << "Error: SHA1 of encrypted answer is different from announced.";
         return false;
@@ -2046,10 +2050,15 @@ bool CTelegramConnection::processServerDHParamsOK(const QByteArray &encryptedAns
         return false;
     }
 
+    qDebug() << "dhPrime size:" << m_dhPrime.size() << m_dhPrime.toHex();
+    qDebug() << "gA size:" << m_gA.size() << m_gA.toHex();
+
     quint32 serverTime;
     encryptedInputStream >> serverTime;
     setDeltaTime(qint64(serverTime) - (QDateTime::currentMSecsSinceEpoch() / 1000));
     m_deltaTimeHeuristicState = DeltaTimeIsOk;
+
+    QByteArray remBytes = encryptedInputStream.readAll();
     return true;
 }
 
@@ -2108,6 +2117,7 @@ void CTelegramConnection::requestDhGenerationResult()
 
             packageLength += randomPadding.size();
         }
+        qDebug() << Q_FUNC_INFO << "Inner data size:" << innerData.size();
 
         encryptedPackage = Utils::aesEncrypt(sha + innerData + randomPadding, m_tmpAesKey);
         encryptedPackage.truncate(packageLength);
@@ -2150,6 +2160,8 @@ bool CTelegramConnection::processServerDhAnswer(const QByteArray &payload)
         qDebug() << "Error: Unexpected server response.";
         return false;
     }
+    qDebug() << "readedHashPart..." << readedHashPart.toHex();
+
     if (Utils::sha1(expectedHashData).mid(4) != readedHashPart) {
         qDebug() << "Error: Server (newNonce + auth key) hash is not correct.";
         return false;
@@ -4396,6 +4408,7 @@ bool CTelegramConnection::checkClientServerNonse(CTelegramStream &stream) const
 
 SAesKey CTelegramConnection::generateTmpAesKey() const
 {
+    qDebug() << Q_FUNC_INFO << m_serverNonce << m_newNonce;
     QByteArray newNonceAndServerNonce;
     newNonceAndServerNonce.append(m_newNonce.data, m_newNonce.size());
     newNonceAndServerNonce.append(m_serverNonce.data, m_serverNonce.size());
@@ -4408,6 +4421,8 @@ SAesKey CTelegramConnection::generateTmpAesKey() const
 
     const QByteArray key = Utils::sha1(newNonceAndServerNonce) + Utils::sha1(serverNonceAndNewNonce).mid(0, 12);
     const QByteArray iv  = Utils::sha1(serverNonceAndNewNonce).mid(12, 8) + Utils::sha1(newNonceAndNewNonce) + QByteArray(m_newNonce.data, 4);
+
+    qDebug() << Q_FUNC_INFO << "key:" << key.toHex() << "iv:" << iv.toHex();
 
     return SAesKey(key, iv);
 }
