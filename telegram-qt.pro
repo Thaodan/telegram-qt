@@ -70,6 +70,7 @@ equals(BUILD_QML_IMPORT, "true") {
 }
 
 contains(options, developer-build) {
+    SUBDIRS += tests
     SUBDIRS += TelegramQt/tests
     minQtVersion(5, 6, 0) {
         SUBDIRS += generator
