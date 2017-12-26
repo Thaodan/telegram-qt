@@ -29,6 +29,7 @@
 #include "TLNumbers.hpp"
 #include "crypto-rsa.hpp"
 #include "crypto-aes.hpp"
+#include "PendingOperation.hpp"
 
 class CAppInformation;
 class CTelegramStream;
@@ -40,6 +41,14 @@ QT_FORWARD_DECLARE_CLASS(QFile)
 #endif
 
 QT_FORWARD_DECLARE_CLASS(QTimer)
+
+using namespace Telegram;
+
+namespace Telegram {
+
+class BaseDhLayer;
+
+} // Telegram
 
 class CTelegramConnection : public QObject
 {
@@ -274,15 +283,6 @@ public:
 
     AuthState authState() { return m_authState; }
 
-    void requestPqAuthorization();
-    bool acceptPqAuthorization(const QByteArray &payload);
-    void requestDhParameters();
-    bool acceptDhAnswer(const QByteArray &payload);
-    bool processServerDHParamsOK(const QByteArray &encryptedAnswer);
-    void generateDh();
-    void requestDhGenerationResult();
-    bool processServerDhAnswer(const QByteArray &payload);
-
     TLNumber128 clientNonce() const { return m_clientNonce; }
     TLNumber128 serverNonce() const { return m_serverNonce; }
 
@@ -492,7 +492,6 @@ protected:
 
     TLValue processUpdate(CTelegramStream &stream, bool *ok, quint64 id);
 
-    SAesKey generateTmpAesKey() const;
     SAesKey generateClientToServerAesKey(const QByteArray &messageKey) const;
     SAesKey generateServerToClientAesKey(const QByteArray &messageKey) const;
 
@@ -525,6 +524,7 @@ protected slots:
     void onTransportTimeout();
     void onTimeToPing();
     void onTimeToAckMessages();
+    void onDhStateChanged();
 
 protected:
     bool checkClientServerNonse(CTelegramStream &stream) const;
@@ -539,6 +539,7 @@ protected:
     QTimer *m_authTimer;
     QTimer *m_pingTimer;
     QTimer *m_ackTimer;
+    BaseDhLayer *m_dhLayer = nullptr;
 
     AuthState m_authState;
 
