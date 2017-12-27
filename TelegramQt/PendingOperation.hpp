@@ -91,6 +91,28 @@ protected:
     bool m_hasRecovery;
 };
 
+class PlainPacketOperation : public PendingOperation
+{
+    Q_OBJECT
+public:
+    explicit PlainPacketOperation(const QByteArray &requestData, QObject *parent = nullptr);
+
+    QByteArray requestData() const { return m_requestData; }
+    QByteArray replyData() const { return m_replyData; }
+    void setReplyData(const QByteArray &data) { m_replyData = data; }
+
+    quint64 requestId() const { return m_requestId; } // RPC message id
+    void setRequestId(quint64 id) { m_requestId = id; }
+
+signals:
+    void finished(PlainPacketOperation *operation);
+
+protected:
+    quint64 m_requestId;
+    QByteArray m_replyData;
+    QByteArray m_requestData;
+};
+
 }
 
 #endif // TELEGRAMQT_PENDING_OPERATION

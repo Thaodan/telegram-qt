@@ -104,4 +104,11 @@ void PendingAuthOperation::setPasswordHint(const QString &hint)
     emit passwordHintChanged(hint);
 }
 
+PlainPacketOperation::PlainPacketOperation(const QByteArray &requestData, QObject *parent) :
+    PendingOperation(parent),
+    m_requestData(requestData)
+{
+    connect(this, &PendingOperation::finished, [this]() { emit PlainPacketOperation::finished(this); });
+}
+
 }
