@@ -29,6 +29,7 @@ DEFINES += QT_STRICT_ITERATORS
 
 SOURCES = CTelegramCore.cpp \
     CAppInformation.cpp \
+    DhLayer.cpp \
     CTelegramDispatcher.cpp \
     CTelegramModule.cpp \
     CTelegramAuthModule.cpp \
@@ -62,6 +63,7 @@ HEADERS = CTelegramCore.hpp \
     CAppInformation.hpp \
     Debug.hpp \
     Debug_p.hpp \
+    DhLayer.hpp \
     CTelegramDispatcher.hpp \
     CTelegramModule.hpp \
     CTelegramAuthModule.hpp \
